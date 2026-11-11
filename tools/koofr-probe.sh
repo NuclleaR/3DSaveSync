@@ -23,15 +23,23 @@ P_MOVED_FILE="$P/dst/moved/file é.txt"; E_MOVED_FILE="$P/dst/moved/file%20%C3%A
 P_TAKEN="$P/dst/taken"
 P_NOPE="$P/nope"
 
-read -rp "Koofr email: " user
-read -rsp "Koofr app password: " pass
+IFS= read -rp "Koofr email: " user
+IFS= read -rsp "Koofr app password: " pass
 echo
+
+# netrc value in double quotes, so spaces and special characters survive
+# (curl >= 7.84 understands quoted netrc strings with \" and \\ escapes).
+netrc_quote() {
+    local s="${1//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    printf '"%s"' "$s"
+}
 
 netrc="$(mktemp)"
 out="$(mktemp)"
 trap 'rm -f "$netrc" "$out"' EXIT
 chmod 600 "$netrc"
-printf 'machine app.koofr.net login %s password %s\n' "$user" "$pass" > "$netrc"
+printf 'machine app.koofr.net login %s password %s\n' "$(netrc_quote "$user")" "$(netrc_quote "$pass")" > "$netrc"
 unset pass
 
 # call METHOD DISPLAY_PATH ENCODED_PATH [extra curl args...]
