@@ -1,0 +1,9 @@
+build/
+tests/build/
+*.3dsx
+*.cia
+*.elf
+*.smdh
+*.bnr
+*.icn
+.superpowers/
