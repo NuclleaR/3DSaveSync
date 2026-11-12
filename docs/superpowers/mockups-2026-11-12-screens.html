@@ -1,0 +1,128 @@
+<style>
+  .ds-row{display:flex;flex-wrap:wrap;gap:28px;margin:18px 0 34px}
+  .ds{display:flex;flex-direction:column;align-items:center;gap:10px;background:#2b2d31;padding:14px;border-radius:14px}
+  .scr{background:#101418;color:#d8dee4;font:12px/1.4 "DejaVu Sans Mono",Menlo,monospace;padding:8px 10px;box-sizing:border-box;overflow:hidden;border:2px solid #000;border-radius:3px}
+  .top{width:400px;height:240px}
+  .bot{width:320px;height:240px}
+  .bar{display:flex;justify-content:space-between;color:#8b949e;border-bottom:1px solid #30363d;padding-bottom:4px;margin-bottom:6px}
+  .row{display:flex;justify-content:space-between;white-space:nowrap}
+  .hl{background:#1f6feb;color:#fff;margin:0 -10px;padding:0 10px}
+  .ok{color:#3fb950}.skip{color:#8b949e}.err{color:#f85149}.cur{color:#d29922}
+  .btn{border:1px solid #3d444d;border-radius:6px;padding:9px 6px;text-align:center;background:#1c2128;color:#e6edf3}
+  .btn.primary{background:#1f6feb;border-color:#1f6feb;color:#fff}
+  .btn.danger{background:#b62324;border-color:#b62324;color:#fff}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+  .prog{height:8px;background:#30363d;border-radius:4px;margin:4px 0 8px}
+  .prog>div{height:100%;width:39%;background:#1f6feb;border-radius:4px}
+  .note{color:#8b949e;font-size:11px;margin-top:8px}
+  .cap{max-width:760px}
+</style>
+
+<h2>Як це виглядатиме на консолі</h2>
+<p class="subtitle">Верхній екран 400×240, нижній (сенсорний) 320×240. Текст на консолі поки англійською.</p>
+
+<h3>1. Запуск: синхронізація стартує сама</h3>
+<p class="cap">Відкриваєш програму, і вона відразу читає сейви всіх установлених ігор та вивантажує в Koofr лише ті, що змінилися. Кожен запуск додає нові версії, старі не чіпає.</p>
+<div class="ds-row">
+  <div class="ds">
+    <div class="scr top">
+      <div class="bar"><span>3DSaveSync</span><span>Koofr <span class="ok">●</span></span></div>
+      <div>Backing up 9 / 23</div>
+      <div class="prog"><div></div></div>
+      <div class="row"><span><span class="ok">✓</span> Animal Crossing: New Leaf</span><span class="ok">uploaded</span></div>
+      <div class="row"><span><span class="skip">=</span> Fire Emblem Awakening</span><span class="skip">unchanged</span></div>
+      <div class="row"><span><span class="skip">=</span> Kid Icarus: Uprising</span><span class="skip">unchanged</span></div>
+      <div class="row"><span><span class="ok">✓</span> Monster Hunter 4 Ultimate</span><span class="ok">uploaded</span></div>
+      <div class="row"><span><span class="cur">›</span> Pokémon Ultra Moon</span><span class="cur">reading…</span></div>
+    </div>
+    <div class="scr bot">
+      <div class="note" style="margin-top:40px;text-align:center">Saves are only read.<br>Nothing on the console is changed.</div>
+      <div class="btn" style="margin:40px 60px 0">Cancel</div>
+    </div>
+  </div>
+
+  <div class="ds">
+    <div class="scr top">
+      <div class="bar"><span>3DSaveSync</span><span>Koofr <span class="ok">●</span></span></div>
+      <div>Sync finished · 2026-11-12 19:40</div>
+      <div style="margin:4px 0 8px"><span class="ok">4 uploaded</span> · <span class="skip">19 unchanged</span> · <span class="err">0 errors</span></div>
+      <div class="row"><span><span class="ok">✓</span> Animal Crossing: New Leaf</span><span class="ok">uploaded</span></div>
+      <div class="row"><span><span class="ok">✓</span> Monster Hunter 4 Ultimate</span><span class="ok">uploaded</span></div>
+      <div class="row"><span><span class="ok">✓</span> Pokémon Ultra Moon</span><span class="ok">uploaded</span></div>
+      <div class="row"><span><span class="ok">✓</span> Zelda: A Link Between Worlds</span><span class="ok">uploaded</span></div>
+    </div>
+    <div class="scr bot">
+      <div class="grid" style="margin-top:20px">
+        <div class="btn primary">Restore</div>
+        <div class="btn">Delete versions</div>
+        <div class="btn">Sync again</div>
+        <div class="btn">Settings</div>
+      </div>
+      <div class="note" style="text-align:center;margin-top:24px">START — exit</div>
+    </div>
+  </div>
+</div>
+
+<h3>2. Відновлення: вибираєш гру й версію</h3>
+<p class="cap">У списку всі ігри з хмари, навіть ті, яких зараз немає на консолі (після смерті картки). Програма завантажує вибрану версію в папку Checkpoint, а в гру її записуєш уже в Checkpoint.</p>
+<div class="ds-row">
+  <div class="ds">
+    <div class="scr top">
+      <div class="bar"><span>Restore · pick a game</span><span>23 games</span></div>
+      <div class="row"><span>Animal Crossing: New Leaf</span><span class="skip">12 versions</span></div>
+      <div class="row"><span>Fire Emblem Awakening</span><span class="skip">3 versions</span></div>
+      <div class="row"><span>Kid Icarus: Uprising</span><span class="skip">2 versions</span></div>
+      <div class="row"><span>Monster Hunter 4 Ultimate</span><span class="skip">8 versions</span></div>
+      <div class="row hl"><span>Pokémon Ultra Moon</span><span>5 versions</span></div>
+      <div class="row"><span>Zelda: A Link Between Worlds</span><span class="skip">4 versions</span></div>
+    </div>
+    <div class="scr bot">
+      <div class="bar"><span>Pokémon Ultra Moon</span><span></span></div>
+      <div class="row hl"><span>2026-11-12 19:40</span><span>latest</span></div>
+      <div class="row"><span>2026-11-12 09:15</span><span></span></div>
+      <div class="row"><span>2026-11-08 21:02</span><span></span></div>
+      <div class="row"><span>2026-10-30 18:11</span><span></span></div>
+      <div class="row"><span>2026-10-21 22:47</span><span></span></div>
+      <div class="btn primary" style="margin-top:12px">Download to Checkpoint</div>
+      <div class="note" style="text-align:center">Then restore it in Checkpoint.</div>
+    </div>
+  </div>
+</div>
+
+<h3>3. Видалення: ти сам позначаєш, що прибрати</h3>
+<p class="cap">Список ігор той самий. Ти позначаєш версії й видаляєш їх із Koofr, а перед видаленням програма просить підтвердження. Сама вона нічого не видаляє.</p>
+<div class="ds-row">
+  <div class="ds">
+    <div class="scr top">
+      <div class="bar"><span>Delete · pick a game</span><span>23 games</span></div>
+      <div class="row"><span>Animal Crossing: New Leaf</span><span class="skip">12 versions</span></div>
+      <div class="row"><span>Fire Emblem Awakening</span><span class="skip">3 versions</span></div>
+      <div class="row"><span>Kid Icarus: Uprising</span><span class="skip">2 versions</span></div>
+      <div class="row"><span>Monster Hunter 4 Ultimate</span><span class="skip">8 versions</span></div>
+      <div class="row hl"><span>Pokémon Ultra Moon</span><span>5 versions</span></div>
+      <div class="row"><span>Zelda: A Link Between Worlds</span><span class="skip">4 versions</span></div>
+    </div>
+    <div class="scr bot">
+      <div class="bar"><span>Pokémon Ultra Moon</span><span>2 selected</span></div>
+      <div class="row"><span>☐ 2026-11-12 19:40</span><span class="skip">latest</span></div>
+      <div class="row"><span>☐ 2026-11-12 09:15</span><span></span></div>
+      <div class="row"><span>☑ 2026-11-08 21:02</span><span></span></div>
+      <div class="row"><span>☑ 2026-10-30 18:11</span><span></span></div>
+      <div class="row"><span>☐ 2026-10-21 22:47</span><span></span></div>
+      <div class="btn danger" style="margin-top:12px">Delete 2 versions</div>
+    </div>
+  </div>
+  <div class="ds">
+    <div class="scr top" style="display:flex;align-items:center;justify-content:center;text-align:center">
+      <div>Delete 2 versions of<br><b>Pokémon Ultra Moon</b> from Koofr?<br><br><span class="err">This cannot be undone.</span></div>
+    </div>
+    <div class="scr bot">
+      <div class="grid" style="margin-top:80px">
+        <div class="btn danger">A — Delete</div>
+        <div class="btn">B — Cancel</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="note" style="font-size:13px">Перший запуск: програма просить логін Koofr і пароль для застосунку (екранна клавіатура) та зберігає їх у своєму захищеному сховищі.</p>

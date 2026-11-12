@@ -1,7 +1,9 @@
 # 3DSaveSync — Design
 
 Date: 2026-11-12
-Status: draft, awaiting owner approval
+Status: approved by the owner 2026-11-12; implementation in progress
+(`docs/superpowers/plans/2026-11-12-3dsavesync.md`). Updated with the decisions made during
+implementation (cloud layout, upload protocol, restore rules, research results).
 
 ## Intent
 
@@ -75,6 +77,9 @@ These would make the app a failure even if everything else works:
 | Deletion | Manual only, owner selects versions, with confirmation |
 | Same-day runs | Add a new version alongside, never replace |
 | Screens | The approved mockup (see "Screens") |
+| Build system | Make (devkitPro's application template plus a `cia` target) |
+| PC unit tests | doctest (single header, vendored) for the hardware-free code in `source/core/` |
+| Version control | git, commits only on the owner's go-ahead, no AI attribution; remote `git@github.com:NuclleaR/3DSaveSync.git` |
 
 ## Constraints found during research (2026-11-12)
 
@@ -84,7 +89,20 @@ These would make the app a failure even if everything else works:
 - **The console's built-in SSL service tops out at TLS 1.1** (3dbrew, and Pretendo forum reports that
   the 3DS cannot reach TLS-1.2-only servers). Therefore `httpc`/`sslc` cannot be used; all network
   traffic goes through libcurl + mbedTLS.
-- devkitPro was not yet installed on the build machine at the time of writing.
+- **Koofr's WebDAV accepts only an app password.** The account password that works in the browser
+  gets HTTP 401 on WebDAV.
+- **Koofr's WebDAV answers as the upload protocol needs** (probe run 2026-11-12,
+  `tools/koofr-probe.sh`):
+  - MKCOL of a new folder → 201; MKCOL of an existing folder → 405.
+  - PUT → 201; GET → 200; PROPFIND Depth 1 → 207.
+  - PROPFIND of a missing folder → 404.
+  - MOVE of a folder with `Overwrite: F` → 201; onto an existing name → 412.
+  - DELETE of a folder (recursive) → 204; DELETE of a missing path → 404.
+  
+  PROPFIND hrefs are paths starting with `/dav/Koofr`, prefixed `D:`.
+- **Koofr's certificate chain:** `*.koofr.net` ← RapidSSL TLS RSA CA G1 ← DigiCert Global Root G2.
+- **Toolchain:** devkitARM GCC 16.1, so C++23 (`std::expected`) is available on the console as well as
+  on the PC.
 
 ## How it works
 
@@ -121,6 +139,11 @@ These would make the app a failure even if everything else works:
 3. "Download to Checkpoint" writes that version into Checkpoint's backup folders on the SD card
    (save data and, if present, extdata of that version), then tells the owner to restore it in
    Checkpoint.
+4. An existing local folder is never written into. If `<version>` already exists under the game's
+   Checkpoint saves or extdata folder, the download goes to `<version>-2`, `-3`, ….
+5. Every downloaded file is checked against the SHA-256 in the version's manifest. On any failure
+   (corrupted file, network, cancel) the folders written by this download are removed, so Checkpoint
+   never sees a half-written backup.
 
 ### Delete versions
 
@@ -138,52 +161,97 @@ Mirror Checkpoint's on-SD layout under the cloud root, so a downloaded version d
 Checkpoint's folders and Checkpoint recognises it:
 
 ```
-/3DSaveSync/saves/<Checkpoint title folder>/<version folder>/...
-/3DSaveSync/extdata/<Checkpoint title folder>/<version folder>/...
+<root>/saves/<Checkpoint title folder>/<version>/...          save data files
+<root>/extdata/<Checkpoint title folder>/<version>/...        extdata files (only if the game has any)
+<root>/manifests/<Checkpoint title folder>/<version>.manifest list of the version's files
+<root>/.incoming/<Checkpoint title folder>/<version>/...      uploads in progress
 ```
 
-The title-folder and version-folder names must match exactly what Checkpoint itself produces and
-expects under `/3ds/Checkpoint/saves/` and `/3ds/Checkpoint/extdata/`. The builder confirms the exact
-format against the source of the latest Checkpoint release before writing any upload code; the owner
-checks on the console later that Checkpoint sees downloaded versions.
+`<root>` is `/3DSaveSync` unless changed in Settings.
 
-A version of a game is its save folder and its extdata folder with the same version name. Both
-belong to the same snapshot.
+Names match Checkpoint exactly (checked against the source of the latest Checkpoint release):
+- **Title folder.** `"0x%05X "` of `((u32)titleId) >> 8`, then the SMDH English short description.
+  In the description, each of `.,!\/:?*"<>|` becomes a space and trailing spaces are dropped
+  (e.g. `0x0175E Pokémon Moon`, `0x… Kid Icarus  Uprising`).
+- **Version.** Local time as `YYYYMMDD-HHMMSS` (Checkpoint's default backup name). A clash adds
+  `-2`, `-3`, ….
+- **Extdata id.** `((u32)titleId) >> 8` except Checkpoint's known exceptions (Pokémon X/Y, ORAS,
+  Sun/Moon, Ultra Sun/Moon, Fire Emblem Fates).
+
+The owner checks on the console that Checkpoint sees downloaded versions.
+
+A version of a game is its save folder and its extdata folder with the same version name, plus its
+manifest. All three belong to the same snapshot.
+
+**Manifest.** The manifest is a text file listing every file of the snapshot (part, size, SHA-256,
+relative path). It answers "has this game changed since its latest version?" (same set of files,
+sizes and hashes means unchanged) and lets Restore verify every download.
+
+The manifests live in their own `manifests/` tree, not inside the version folders. Checkpoint
+restores every file it finds in a backup folder into the game's save, so an extra file there would
+end up in the save.
 
 ## Upload protocol
 
-- Each new version is uploaded under a temporary name and gets its final version name only once
-  every file of the snapshot (save data and extdata) has been uploaded.
-- A version counts as complete only when it carries its final name. Temporary uploads never appear
-  in Restore or Delete and never count as "the latest version" for change detection.
-- On the next launch the app deletes leftover temporary uploads from interrupted runs (Cancel,
-  network loss, power off). This is the only automatic deletion the app ever performs; it never
-  touches a complete version.
+1. Every file of the snapshot is PUT under `<root>/.incoming/<title>/<version>/saves/…` and
+   `…/extdata/…`, then the manifest under `<root>/.incoming/<title>/<version>/<version>.manifest`.
+2. MOVE `…/saves` → `<root>/saves/<title>/<version>`; MOVE `…/extdata` →
+   `<root>/extdata/<title>/<version>` (if the game has extdata).
+3. MOVE the manifest → `<root>/manifests/<title>/<version>.manifest`. **This is the completion
+   point:** a version is complete exactly when its manifest is in `manifests/`.
+4. DELETE `<root>/.incoming/<title>/<version>`.
+
+Only complete versions appear in Restore and Delete and count as "the latest version".
+
+**Cleanup on launch** (the only automatic deletion, owner-approved). For each leftover
+`<root>/.incoming/<title>/<version>`:
+- if that version has no manifest, its `saves/` and `extdata/` folders of the same title and version
+  are removed (partial moves of the interrupted upload), then the incoming folder;
+- if the manifest exists (the crash came after the completion point), only the incoming folder is
+  removed.
+
+Cleanup never touches a saves/extdata folder without an `.incoming` counterpart, never touches a
+complete version, and lists everything before deleting anything. If any listing fails, it deletes
+nothing.
+
+**Deleting a version** removes its saves folder, then its extdata folder, then the manifest last, so a
+failed delete stays visible and can be retried.
 
 This layout also keeps the door open for a later version that writes saves back itself, without
 changing what is already stored in the cloud.
 
 ## Screens
 
-Approved mockup: `.superpowers/brainstorm/1790841-1794438123/content/flow.html`. Top screen 400×240,
+Approved mockup: `docs/superpowers/mockups-2026-11-12-screens.html` (open it in a browser). Top screen 400×240,
 bottom touch screen 320×240. UI text is in English. Touch and the D-pad/A/B both work.
 
 ## The designer's calls (not discussed with the owner)
 
 - Restoring a version downloads both its save data and its extdata into Checkpoint's folders.
-- The TLS server certificate is verified (CA certificates bundled with the app), since the
-  connection carries the Koofr credentials.
+- The TLS server certificate is verified, since the connection carries the Koofr credentials. The
+  app bundles Mozilla's CA set (`romfs/cacert.pem` from curl.se), not just Koofr's current root, so a
+  change of certificate authority at Koofr does not break it.
+- Change detection and restore verification use a per-version manifest with SHA-256 per file (see
+  "Cloud layout").
+- Restore never writes into an existing local folder (`-2` suffix), verifies every file, and rolls
+  back on failure (see "Restore").
+- Cleanup decides everything before deleting anything (see "Upload protocol").
+- Extdata files that cannot be opened (in use) are skipped, as Checkpoint does; save data files that
+  cannot be read fail that game.
+- Game list: SD-installed titles, minus Checkpoint's exclusions (instruction manuals, updates
+  `0x0004000E`, DSi data `0x0004800F`), that have save data or extdata.
+- CIA: product code `CTR-H-3DSS`, unique id `0xF3D55`, 128 KB own save data (holds the credentials).
+  The RSF filesystem access list follows Checkpoint's, which opens other titles' archives.
+  Placeholder icon and banner until the owner provides art.
+- Error texts shown on the console:
+  - No network: "No connection to Koofr. Check Wi-Fi."
+  - TLS failure: "Secure connection failed. Check the console's date and time."
+  - HTTP 401/403: "Koofr rejected the login. Check email and app password in Settings."
+  - HTTP 507: "Koofr storage is full."
+  
+  Network, TLS, login and storage-full errors stop a backup run. Other errors fail only the game
+  they happened on.
 
 ## Left to the builder
 
-- How "changed since the latest version" is detected (e.g. a hash manifest stored with each version).
-- The mechanics of the temporary name and the final rename (e.g. a temp folder plus WebDAV MOVE),
-  including the two folders (saves/ and extdata/) a single version spans.
-- Which CA certificates to bundle and how.
-- Title-name source (SMDH) and folder-name sanitising, matching Checkpoint.
-- Filesystem access permissions in the CIA's RSF needed to open other titles' save and extdata
-  archives (Checkpoint's RSF is a reference).
-- Network timeouts, retries and error messages.
-- What to do when the target folder already exists in Checkpoint's folder during Restore.
-- CIA title ID / product code in the homebrew range, and placeholder icon and banner art.
-- Project structure and build scripts.
+- Network timeouts and retries.
