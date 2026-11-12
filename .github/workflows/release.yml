@@ -1,0 +1,85 @@
+# Pushing a tag v* (e.g. v0.1.0) runs the PC tests, builds 3DSaveSync.cia and
+# publishes it as a GitHub release named after the tag, with a QR code that
+# FBI (Remote Install → Scan QR Code) can scan to install that version.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: PC tests
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Install test dependencies
+        run: pacman -Syu --noconfirm --needed tinyxml2 curl
+      - uses: actions/checkout@v7
+      - name: Run tests
+        run: make -C tests
+
+  cia:
+    name: Build CIA
+    needs: test
+    runs-on: ubuntu-24.04
+    container: devkitpro/devkitarm:20260610
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check portlibs
+        run: dkp-pacman -Q 3ds-curl 3ds-mbedtls 3ds-tinyxml2
+      - name: Restore makerom and bannertool
+        id: tools
+        uses: actions/cache@v6
+        with:
+          path: /opt/cia-tools
+          key: cia-tools-${{ hashFiles('tools/build-cia-tools.sh') }}
+      - name: Build makerom and bannertool
+        if: steps.tools.outputs.cache-hit != 'true'
+        run: bash tools/build-cia-tools.sh /opt/cia-tools
+      - name: Build CIA
+        run: |
+          export PATH="/opt/cia-tools:$PATH"
+          make cia
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cia
+          path: 3DSaveSync.cia
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: cia
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      CIA_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/3DSaveSync.cia
+      QR_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/3DSaveSync-qr.png
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: cia
+      - name: Install qrencode
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qrencode
+      - name: Make the QR code for FBI
+        run: qrencode -s 8 -m 2 -o 3DSaveSync-qr.png "$CIA_URL"
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Install on the console: FBI → Remote Install → Scan QR Code."
+            echo
+            echo "![QR code for FBI]($QR_URL)"
+            echo
+            echo "Direct link: $CIA_URL"
+          } > notes.md
+          gh release create "$GITHUB_REF_NAME" 3DSaveSync.cia 3DSaveSync-qr.png \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md --generate-notes
