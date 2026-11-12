@@ -7,8 +7,9 @@
 # FlagBrew, GPLv3 or later, with Additional Terms 7.b and 7.c (preserve this
 # attribution; modified versions must be marked as such).
 # Modified for 3DSaveSync: own title, product code, unique id, romfs path and
-# save data size; IoAccessControl, IORegisterMapping, MemoryMapping removed;
-# service and dependency lists cut down to what this app uses.
+# save data size; IoAccessControl and IORegisterMapping removed (MemoryMapping
+# kept: VRAM read access); service and dependency lists cut down to what this
+# app uses.
 BasicInfo:
   Title                   : $(APP_TITLE)
   ProductCode             : $(APP_PRODUCT_CODE)
@@ -81,6 +82,12 @@ AccessControlInfo:
   CpuSpeed                      : 268MHz
   EnableL2Cache                 : false
   CanAccessCore2                : false
+
+  # Read access to VRAM. libctru reads the screens from VRAM to hand a capture
+  # to library applets (the software keyboard); without this mapping the app
+  # crashes with a data abort in aptConvertScreenForCapture.
+  MemoryMapping:
+   - 1f000000-1f5fffff:r
 
   SystemCallAccess:
     ControlMemory: 1

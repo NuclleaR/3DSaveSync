@@ -19,10 +19,17 @@ struct Status {
     u32 barColor;
 };
 
-void draw(ui::Ui& ui, const Status& status) {
+// account: the Koofr login in use, or null before there is one.
+void draw(ui::Ui& ui, const Status& status, const core::Settings* account) {
     ui.beginFrame();
     ui.topBar(status.bar, status.barColor);
     ui.text(GFX_TOP, 10.0f, 34.0f, status.text, status.color, 0.5f, ui::kTopWidth - 20.0f);
+    if (account != nullptr) {
+        ui.text(GFX_TOP, 10.0f, 80.0f, "Email", ui::kMuted);
+        ui.text(GFX_TOP, 120.0f, 80.0f, account->user, ui::kText);
+        ui.text(GFX_TOP, 10.0f, 98.0f, "Cloud folder", ui::kMuted);
+        ui.text(GFX_TOP, 120.0f, 98.0f, account->root, ui::kText);
+    }
     const char* hint = "START - exit";
     ui.text(GFX_BOTTOM, (ui::kBottomWidth - ui.textWidth(hint, 0.45f)) / 2.0f, 210.0f, hint, ui::kMuted, 0.45f);
     ui.endFrame();
@@ -63,20 +70,25 @@ int main() {
     }
 
     std::optional<Status> status;
+    std::optional<core::Settings> settings;
     if (!platform::networkInit()) {
         status = Status{"Could not start the network service.", ui::kError, "", ui::kMuted};
-    } else if (auto settings = obtainSettings(ui, status)) {
-        draw(ui, {"Connecting to Koofr...", ui::kCurrent, "Koofr", ui::kMuted});
-        status = checkConnection(*settings);
+    } else {
+        settings = obtainSettings(ui, status);
+        if (settings) {
+            draw(ui, {"Connecting to Koofr...", ui::kCurrent, "Koofr", ui::kMuted}, &*settings);
+            status = checkConnection(*settings);
+        }
     }
 
     if (status) {
+        const core::Settings* account = settings ? &*settings : nullptr;
         while (aptMainLoop()) {
             hidScanInput();
             if (hidKeysDown() & KEY_START) {
                 break;
             }
-            draw(ui, *status);
+            draw(ui, *status, account);
         }
     }
 

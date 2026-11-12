@@ -126,7 +126,9 @@ These would make the app a failure even if everything else works:
   `ARCHIVE_ACTION_COMMIT_SAVE_DATA`. A fresh install has no archive yet; the app formats it on first
   use. When the file is missing or cannot be opened, the app treats it as a first launch and shows
   setup.
-- Settings screen: change credentials, change the cloud root folder.
+- Settings screen: change credentials, change the cloud root folder, sign out.
+- Sign out (owner, 2026-11-12): a "Sign out" button in Settings, behind a confirmation. It deletes
+  the saved email and app password and keeps the cloud folder, then shows the setup screen.
 
 ### Backup (runs automatically on launch)
 
@@ -239,7 +241,9 @@ The mockup has no setup screen. Its layout uses the mockup's colors and buttons:
 shows "Koofr login", the email, whether the app password is set (never the password itself), the
 cloud folder, the status or error text, and a hint that WebDAV needs a Koofr app password. The
 bottom screen has the buttons "Email", "App password" and "Connect" (primary). The D-pad moves the
-selection and A presses the selected button.
+selection and A presses the selected button. After setup, and on every later launch, the top screen
+shows the connection status together with the email and the cloud folder in use, so the owner can
+see which Koofr account the app is signed in to.
 
 ## The designer's calls (not discussed with the owner)
 
@@ -257,7 +261,9 @@ selection and A presses the selected button.
 - Game list: SD-installed titles, minus Checkpoint's exclusions (instruction manuals, updates
   `0x0004000E`, DSi data `0x0004800F`), that have save data or extdata.
 - CIA: product code `CTR-H-3DSS`, unique id `0xF3D55`, 128 KB own save data (holds the credentials).
-  The RSF filesystem access list follows Checkpoint's, which opens other titles' archives.
+  The RSF filesystem access list follows Checkpoint's, which opens other titles' archives. The RSF
+  also maps VRAM read-only (`1f000000-1f5fffff:r`): libctru reads the screens from VRAM when it
+  starts a library applet such as the software keyboard.
   Placeholder icon and banner until the owner provides art.
 - Error texts shown on the console:
   - No network: "No connection to Koofr. Check Wi-Fi."
