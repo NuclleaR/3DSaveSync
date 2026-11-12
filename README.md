@@ -5,8 +5,6 @@ installed game to [Koofr](https://koofr.eu) over WebDAV. It keeps every version,
 version back into Checkpoint's folders so it can be restored with
 [Checkpoint](https://github.com/BernardoGiordano/Checkpoint).
 
-It exists because cheap SD cards die and take every save with them.
-
 ## Status
 
 Work in progress. See the [implementation plan](docs/superpowers/plans/2026-11-12-3dsavesync.md)
@@ -137,4 +135,11 @@ docs/superpowers/      design, implementation plan, screen mockups
 
 ## License
 
-Not chosen yet.
+GPL-3.0-or-later; see [LICENSE](LICENSE).
+
+Parts are adapted from [Checkpoint](https://github.com/BernardoGiordano/Checkpoint) (Copyright (C)
+2017-2026 Bernardo Giordano, FlagBrew, GPLv3 or later, with Additional Terms 7.b and 7.c):
+- the extdata-id and system-title tables in `source/core/checkpoint.cpp`;
+- the access lists in `resources/app.rsf`.
+
+Both files keep Checkpoint's notice and say how they were modified.

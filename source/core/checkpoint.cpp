@@ -1,3 +1,36 @@
+/*
+ *   This file is part of 3DSaveSync, licensed under the GNU General Public
+ *   License version 3 or (at your option) any later version. See LICENSE.
+ *
+ *   Portions are adapted from Checkpoint
+ *   (https://github.com/BernardoGiordano/Checkpoint):
+ *     - extdataIdFor() and isSystemExcluded(): the id tables of
+ *       TitleQuirks::extdataIdFor / TitleQuirks::isSystemExcluded,
+ *       3ds/source/titlequirks.cpp;
+ *     - sanitizeName(), titleFolderName(), versionName(): reproduce the
+ *       behaviour of StringUtils::removeForbiddenCharacters,
+ *       Paths::ctrFolderName and DateTime::dateTimeStr.
+ *   Modified for 3DSaveSync: rewritten as free functions in namespace core,
+ *   without libctru types. This is not the original Checkpoint code.
+ *
+ *   Original notice:
+ *     This file is part of Checkpoint
+ *     Copyright (C) 2017-2026 Bernardo Giordano, FlagBrew
+ *
+ *     This program is free software: you can redistribute it and/or modify
+ *     it under the terms of the GNU General Public License as published by
+ *     the Free Software Foundation, either version 3 of the License, or
+ *     (at your option) any later version.
+ *
+ *     Additional Terms 7.b and 7.c of GPLv3 apply to this file:
+ *         * Requiring preservation of specified reasonable legal notices or
+ *           author attributions in that material or in the Appropriate Legal
+ *           Notices displayed by works containing it.
+ *         * Prohibiting misrepresentation of the origin of that material,
+ *           or requiring that modified versions of such material be marked in
+ *           reasonable ways as different from the original version.
+ */
+
 #include "core/checkpoint.hpp"
 
 #include <algorithm>

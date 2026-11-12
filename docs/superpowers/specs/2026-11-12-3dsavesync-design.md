@@ -80,6 +80,7 @@ These would make the app a failure even if everything else works:
 | Build system | Make (devkitPro's application template plus a `cia` target) |
 | PC unit tests | doctest (single header, vendored) for the hardware-free code in `source/core/` |
 | Version control | git, commits only on the owner's go-ahead, no AI attribution; remote `git@github.com:NuclleaR/3DSaveSync.git` |
+| License | GPLv3 (owner, 2026-11-12), so code and tables adapted from Checkpoint (GPLv3 or later) can be used. Files adapted from Checkpoint keep its copyright notice and Additional Terms 7.b/7.c and are marked as modified. "Or later" matches Checkpoint (designer's call). |
 
 ## Constraints found during research (2026-11-12)
 

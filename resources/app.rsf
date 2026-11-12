@@ -1,5 +1,14 @@
-# 3DSaveSync CIA settings. FileSystemAccess follows Checkpoint's RSF, which
-# opens other titles' save data and extdata archives.
+# 3DSaveSync CIA settings. Part of 3DSaveSync, GPL-3.0-or-later (see LICENSE).
+#
+# The FileSystemAccess and SystemCallAccess lists and the layout of this file
+# are adapted from Checkpoint's 3ds/assets/app.rsf
+# (https://github.com/BernardoGiordano/Checkpoint), which opens other titles'
+# save data and extdata archives. Copyright (C) 2017-2026 Bernardo Giordano,
+# FlagBrew, GPLv3 or later, with Additional Terms 7.b and 7.c (preserve this
+# attribution; modified versions must be marked as such).
+# Modified for 3DSaveSync: own title, product code, unique id, romfs path and
+# save data size; IoAccessControl, IORegisterMapping, MemoryMapping removed;
+# service and dependency lists cut down to what this app uses.
 BasicInfo:
   Title                   : $(APP_TITLE)
   ProductCode             : $(APP_PRODUCT_CODE)
