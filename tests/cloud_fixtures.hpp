@@ -20,7 +20,7 @@ struct TestFile {
 
 // A manifest whose sizes and digests (fakeDigest) match the given contents.
 inline core::Manifest makeManifest(uint64_t titleId, const std::vector<TestFile>& files) {
-    core::Manifest m{titleId, {}};
+    core::Manifest m{titleId, {}, {}};
     for (const auto& f : files) {
         m.files.push_back({f.part, f.path, f.content.size(), fakeDigest(f.content)});
     }

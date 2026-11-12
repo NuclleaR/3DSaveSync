@@ -4,7 +4,7 @@ CXXFLAGS := -std=c++23 -Wall -Wextra -Werror -I../source -Ithird_party -MMD -MP
 LDLIBS   := -ltinyxml2 -lcurl
 
 CORE_SRC     := $(wildcard ../source/core/*.cpp)
-PLATFORM_SRC := ../source/platform/curl_error.cpp
+PLATFORM_SRC := ../source/platform/curl_error.cpp ../source/platform/sd_fs.cpp
 TEST_SRC     := $(wildcard *.cpp)
 OBJS     := $(patsubst ../source/core/%.cpp,build/core/%.o,$(CORE_SRC)) \
             $(patsubst ../source/platform/%.cpp,build/platform/%.o,$(PLATFORM_SRC)) \

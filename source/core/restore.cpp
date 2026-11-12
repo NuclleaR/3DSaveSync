@@ -63,8 +63,18 @@ std::expected<RestoreResult, Error> restoreVersion(CloudStore& cloud, LocalFs& f
 
     const std::string savesTitle = std::string(kCheckpointSavesRoot) + "/" + title;
     const std::string extdataTitle = std::string(kCheckpointExtdataRoot) + "/" + title;
-    std::vector<std::string> taken = fs.listDirs(savesTitle);
-    for (auto& d : fs.listDirs(extdataTitle)) {
+    // A folder that cannot be listed may hold backups whose names we would
+    // not avoid, so stop before writing anything.
+    auto saves = fs.listDirs(savesTitle);
+    if (!saves) {
+        return std::unexpected(saves.error());
+    }
+    auto extdata = fs.listDirs(extdataTitle);
+    if (!extdata) {
+        return std::unexpected(extdata.error());
+    }
+    std::vector<std::string> taken = std::move(*saves);
+    for (auto& d : *extdata) {
         taken.push_back(std::move(d));
     }
     const std::string local = uniqueName(version, taken);
@@ -86,6 +96,13 @@ std::expected<RestoreResult, Error> restoreVersion(CloudStore& cloud, LocalFs& f
         }
         const std::string target = (f.part == Part::Save ? saveDir : extdataDir) + "/" + f.path;
         if (auto r = restoreFile(cloud, fs, hasher, title, version, f, target); !r) {
+            return fail(r.error());
+        }
+    }
+    // Folders, so that empty ones come back too.
+    for (const DirEntry& d : m->dirs) {
+        const std::string target = (d.part == Part::Save ? saveDir : extdataDir) + "/" + d.path;
+        if (auto r = fs.makeDirs(target); !r) {
             return fail(r.error());
         }
     }

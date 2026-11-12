@@ -37,6 +37,7 @@ struct Button {
     std::string label;
     bool primary = false;
     bool danger = false;
+    bool disabled = false;
 };
 
 class Ui {
@@ -53,11 +54,22 @@ public:
     // wrap > 0 breaks lines at that width.
     void text(gfxScreen_t s, float x, float y, std::string_view t, u32 color, float scale = 0.5f, float wrap = 0.0f);
     float textWidth(std::string_view t, float scale = 0.5f);
+    // t, shortened with "…" until it fits maxWidth.
+    std::string fit(std::string_view t, float maxWidth, float scale = 0.5f);
     void rect(gfxScreen_t s, float x, float y, float w, float h, u32 color);
+    void dot(gfxScreen_t s, float cx, float cy, float r, u32 color);
+    // A square box, filled when checked.
+    void checkbox(gfxScreen_t s, float x, float y, float size, bool checked);
+    // A screen's header bar with a line under it: left text, right text, and
+    // after it a status dot when dotColor is not 0.
+    void bar(gfxScreen_t s, std::string_view left, std::string_view right, u32 rightColor = kMuted, u32 dotColor = 0);
     // Top-screen bar: "3DSaveSync" on the left, status on the right.
-    void topBar(std::string_view status, u32 statusColor);
+    void topBar(std::string_view status, u32 statusColor, u32 dotColor = 0);
+    // Centered on a screen.
+    void centered(gfxScreen_t s, float y, std::string_view t, u32 color, float scale = 0.5f);
     // A bottom-screen button; focused draws the D-pad selection outline.
     void button(const Button& b, bool focused = false);
+    // Disabled buttons are never hit.
     static bool hit(const Button& b, const touchPosition& p);
 
 private:
@@ -68,6 +80,7 @@ private:
     C3D_RenderTarget* bottom_ = nullptr;
     C3D_RenderTarget* current_ = nullptr;
     C2D_TextBuf textBuf_ = nullptr;
+    C2D_TextBuf measureBuf_ = nullptr;  // cleared on every textWidth, so measuring never fills textBuf_
 };
 
 }  // namespace ui

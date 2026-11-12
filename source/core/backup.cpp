@@ -47,6 +47,16 @@ int BackupSummary::count(Outcome o) const {
     return static_cast<int>(std::count_if(results.begin(), results.end(), [o](const GameResult& r) { return r.outcome == o; }));
 }
 
+bool isBackupCandidate(uint64_t titleId, uint64_t ownTitleId) {
+    return titleId != ownTitleId && !isSystemExcluded(titleId);
+}
+
+std::string countsLine(const BackupSummary& s) {
+    const int unchanged = s.count(Outcome::Unchanged) + s.count(Outcome::Empty);
+    return std::to_string(s.count(Outcome::Uploaded)) + " uploaded · " + std::to_string(unchanged) +
+           " unchanged · " + std::to_string(s.count(Outcome::Failed)) + " errors";
+}
+
 BackupSummary runBackup(GameSource& games, CloudStore& cloud, const std::string& runVersion, BackupProgress& progress,
                         const CancelToken& cancel) {
     BackupSummary summary;

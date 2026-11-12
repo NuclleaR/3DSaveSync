@@ -44,6 +44,14 @@ struct BackupSummary {
     int count(Outcome o) const;
 };
 
+// A title worth backing up: not one of Checkpoint's system exclusions and not
+// this app itself, whose own save holds the Koofr login in plaintext.
+bool isBackupCandidate(uint64_t titleId, uint64_t ownTitleId);
+
+// "N uploaded · N unchanged · N errors" for the summary screen; Empty games
+// count as unchanged, Skipped ones are not counted.
+std::string countsLine(const BackupSummary& s);
+
 class BackupProgress {
 public:
     virtual ~BackupProgress() = default;

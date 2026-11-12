@@ -97,6 +97,28 @@ std::string uniqueName(const std::string& base, const std::vector<std::string>& 
     }
 }
 
+std::string versionLabel(std::string_view version) {
+    constexpr size_t kLen = 15;  // YYYYMMDD-HHMMSS
+    auto digits = [&](size_t from, size_t to) {
+        return std::all_of(version.begin() + from, version.begin() + to, [](char c) { return c >= '0' && c <= '9'; });
+    };
+    if (version.size() < kLen || version[8] != '-' || !digits(0, 8) || !digits(9, kLen)) {
+        return std::string(version);
+    }
+    std::string out;
+    out.append(version.substr(0, 4)).append("-").append(version.substr(4, 2)).append("-");
+    out.append(version.substr(6, 2)).append(" ").append(version.substr(9, 2)).append(":");
+    out.append(version.substr(11, 2));
+    const std::string_view rest = version.substr(kLen);
+    if (rest.empty()) {
+        return out;
+    }
+    if (rest.size() >= 2 && rest[0] == '-' && digits(kLen + 1, version.size())) {
+        return out + " (" + std::string(rest.substr(1)) + ")";
+    }
+    return std::string(version);
+}
+
 uint32_t extdataIdFor(uint64_t titleId) {
     const uint32_t low = static_cast<uint32_t>(titleId);
     switch (low) {

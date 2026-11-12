@@ -16,7 +16,9 @@ It is a backup-and-restore tool, not a multi-device sync. There is one console.
 ## Goals
 
 - **Launch = backup.** Opening the app immediately backs up the save data and extdata of every
-  installed game to Koofr, with no further input.
+  installed game to Koofr, with no further input. Settings has a "Back up on start" checkbox, on by
+  default; with it off the app opens on the menu and "Sync now" runs the backup (owner,
+  2026-11-12).
 - **Only changes create versions.** A game whose save has not changed since its latest version in the
   cloud is reported as "unchanged" and nothing is uploaded for it (owner accepted this).
 - **Every run adds, never replaces.** Running the app several times on the same day adds a new version
@@ -130,7 +132,7 @@ These would make the app a failure even if everything else works:
 - Sign out (owner, 2026-11-12): a "Sign out" button in Settings, behind a confirmation. It deletes
   the saved email and app password and keeps the cloud folder, then shows the setup screen.
 
-### Backup (runs automatically on launch)
+### Backup (runs automatically on launch unless "Back up on start" is off)
 
 1. Connect to Koofr. If there is no network or authentication fails, show the error and go to the
    main menu.
@@ -196,8 +198,10 @@ A version of a game is its save folder and its extdata folder with the same vers
 manifest. All three belong to the same snapshot.
 
 **Manifest.** The manifest is a text file listing every file of the snapshot (part, size, SHA-256,
-relative path). It answers "has this game changed since its latest version?" (same set of files,
-sizes and hashes means unchanged) and lets Restore verify every download.
+relative path) and every folder (part, relative path). It answers "has this game changed since its
+latest version?" (same files, sizes, hashes and folders means unchanged) and lets Restore verify
+every download. Restore also creates every listed folder, so empty folders come back too (owner,
+2026-11-12). The folder lines are optional, so manifests without them still parse.
 
 The manifests live in their own `manifests/` tree, not inside the version folders. Checkpoint
 restores every file it finds in a backup folder into the game's save, so an extra file there would
@@ -241,9 +245,24 @@ The mockup has no setup screen. Its layout uses the mockup's colors and buttons:
 shows "Koofr login", the email, whether the app password is set (never the password itself), the
 cloud folder, the status or error text, and a hint that WebDAV needs a Koofr app password. The
 bottom screen has the buttons "Email", "App password" and "Connect" (primary). The D-pad moves the
-selection and A presses the selected button. After setup, and on every later launch, the top screen
-shows the connection status together with the email and the cloud folder in use, so the owner can
-see which Koofr account the app is signed in to.
+selection and A presses the selected button. The email and the cloud folder in use are shown under
+the menu buttons and in Settings, so the owner can see which Koofr account the app is signed in to.
+
+How the other screens work, beyond the mockup:
+- **Sync.** It runs on a background thread, one priority step below the UI, so the screens keep
+  drawing. B or Cancel stops it. A run stopped by an error is headed "Sync stopped · …". The summary
+  lists failed games first, each with its error text, then the uploaded ones.
+- **Menu.** Restore / Delete versions / Sync again / Settings. START leaves the app from any
+  screen; a running job is cancelled first.
+- **Restore and Delete.** They load every game in the cloud with its versions, showing progress.
+  Versions show as "YYYY-MM-DD HH:MM". The D-pad picks a game on the top screen; A or Right moves to
+  its versions on the bottom screen, and B or Left goes back. In Restore, A on a version downloads
+  it. In Delete, A ticks a version, and the "Delete N versions" button asks for confirmation.
+  Deleting cannot be cancelled once it has started.
+- **Settings.** Changes stay in a draft until Save has checked them with Koofr. B drops unsaved
+  changes, and the screen warns about them. The "Back up on start" checkbox is the exception: it is
+  a local choice and is saved as soon as it is toggled. Sign out keeps it, together with the cloud
+  folder.
 
 ## The designer's calls (not discussed with the owner)
 
@@ -259,7 +278,11 @@ see which Koofr account the app is signed in to.
 - Extdata files that cannot be opened (in use) are skipped, as Checkpoint does; save data files that
   cannot be read fail that game.
 - Game list: SD-installed titles, minus Checkpoint's exclusions (instruction manuals, updates
-  `0x0004000E`, DSi data `0x0004800F`), that have save data or extdata.
+  `0x0004000E`, DSi data `0x0004800F`), that have save data or extdata and a readable SMDH (the name
+  comes from it; DLC and data titles have none). Sorted by name. The app itself is never listed: its
+  own save holds the login.
+- Restore stops before writing anything if a local Checkpoint folder of that game cannot be listed,
+  so it never reuses, overwrites or rolls back a folder it did not create.
 - CIA: product code `CTR-H-3DSS`, unique id `0xF3D55`, 128 KB own save data (holds the credentials).
   The RSF filesystem access list follows Checkpoint's, which opens other titles' archives. The RSF
   also maps VRAM read-only (`1f000000-1f5fffff:r`): libctru reads the screens from VRAM when it
@@ -270,12 +293,14 @@ see which Koofr account the app is signed in to.
   - TLS failure: "Secure connection failed. Check the console's date and time."
   - HTTP 401/403: "Koofr rejected the login. Check email and app password in Settings."
   - HTTP 507: "Koofr storage is full."
+  - Reading the console's archives or writing the SD card failed: "Console storage error: <detail>"
   
   Network, TLS, login and storage-full errors stop a backup run. Other errors fail only the game
   they happened on.
 
-## Left to the builder
+## Network timeouts (owner, 2026-11-12)
 
-- Network timeouts and retries. Until the sync screen with its Cancel button exists (plan Task 13),
-  the app uses curl's defaults: 300 s to connect, no limit on a running transfer. While a request
-  runs the screen does not update and HOME does not respond.
+10 s, "plenty on Wi-Fi". Opening a connection takes at most 10 s, and a request that receives or sends
+no byte for 10 s is aborted. Either case reads "No connection to Koofr. Check Wi-Fi." No request is
+retried. This also bounds the paths that have no Cancel button: deleting versions and the login check
+on the setup screen.

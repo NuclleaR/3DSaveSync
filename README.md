@@ -14,14 +14,15 @@ for task-by-task progress, commits and every deviation from the plan.
 |---|---|
 | Core logic (Checkpoint naming, manifests, WebDAV client, cloud layout, upload protocol, cleanup, backup runner, restore) | done, unit-tested on the PC |
 | CIA build, app skeleton | done; runs in the Azahar emulator |
-| Koofr login, HTTPS (curl + mbedTLS), first-launch setup | built; waiting for the check on the console |
-| Reading installed games, sync / restore / delete / settings screens | not started |
+| Koofr login, HTTPS (curl + mbedTLS), first-launch setup | works on the console |
+| Reading installed games, backup on launch, restore, delete versions, settings, sign out | built; waiting for the acceptance run on the console (plan Task 16) |
 
 ## How it works
 
-What the finished app does; parts are still being built.
+What the app does; it is not yet checked on the console end to end.
 
-- **Launch = backup.** Opening the app backs up every installed game. A game gets a new version only
+- **Launch = backup.** Opening the app backs up every installed game (turn this off with "Back up
+  on start" in Settings; the menu's "Sync now" then runs it). A game gets a new version only
   if its save data or extdata changed since its latest version. A version is always a full snapshot
   of both.
 - **Nothing is overwritten.** Every run adds new versions next to the old ones. The app never deletes
@@ -96,8 +97,8 @@ set in the environment.
 make -C tests
 ```
 
-Builds `source/core/` and `source/platform/curl_error.cpp` with the host compiler and runs the
-doctest suite. The core code has no libctru dependency; the console-specific parts are behind small
+Builds `source/core/`, `source/platform/curl_error.cpp` and `source/platform/sd_fs.cpp` with the
+host compiler and runs the doctest suite (`sd_fs` is tested in a temporary folder under `/tmp`). The core code has no libctru dependency; the console-specific parts are behind small
 interfaces and are checked on the console.
 
 ## Releases
@@ -152,11 +153,12 @@ file that is deleted on exit. Run it in your own terminal so the password is nev
 ## Project layout
 
 ```
-source/main.cpp        app entry: settings or setup, then the Koofr connection check
+source/main.cpp        app entry: settings or setup, backup on launch, screen switching
 source/core/           hardware-free logic, unit-tested on the PC
-source/platform/       3DS implementations: curl transport, settings store, keyboard
-                       (games and SD card access still to come)
-source/ui/             citro2d drawing helpers and the setup screen (other screens to come)
+source/platform/       3DS implementations: curl transport, settings store, keyboard,
+                       installed games and their archives, SHA-256, SD card, clock
+source/ui/             citro2d screens (setup, sync, menu, restore, delete, settings),
+                       lists, the background worker
 tests/                 doctest suite, fakes and fixtures
 tools/koofr-probe.sh   Koofr WebDAV probe
 tools/build-cia-tools.sh  builds makerom and bannertool from source (used by CI)

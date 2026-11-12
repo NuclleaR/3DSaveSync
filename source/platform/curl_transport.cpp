@@ -17,6 +17,9 @@ constexpr size_t kSocBufferSize = 0x100000;
 constexpr size_t kSocBufferAlign = 0x1000;
 constexpr const char* kCaBundle = "romfs:/cacert.pem";
 constexpr const char* kUserAgent = "3DSaveSync/0.1";
+// Owner, 2026-11-12: 10 s is plenty on Wi-Fi. Applies to opening the
+// connection and to a transfer that stops delivering any bytes.
+constexpr long kTimeoutSeconds = 10;
 
 u32* socBuffer = nullptr;
 
@@ -91,6 +94,10 @@ std::expected<core::HttpResponse, core::Error> CurlTransport::send(const core::H
 
     curl_easy_setopt(curl, CURLOPT_URL, req.url.c_str());
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, kTimeoutSeconds);
+    // Below 1 byte/s for kTimeoutSeconds → CURLE_OPERATION_TIMEDOUT (Network).
+    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
+    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, kTimeoutSeconds);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, kUserAgent);
     curl_easy_setopt(curl, CURLOPT_HTTPAUTH, static_cast<long>(CURLAUTH_BASIC));
     curl_easy_setopt(curl, CURLOPT_USERNAME, user_.c_str());

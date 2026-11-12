@@ -39,6 +39,9 @@ std::string versionName(const LocalDateTime& t);
 // base if free, else the first free base + "-2", "-3", ...
 std::string uniqueName(const std::string& base, const std::vector<std::string>& taken);
 
+// "20261112-194005" → "2026-11-12 19:40", "…-2" → "… (2)"; other names as they are.
+std::string versionLabel(std::string_view version);
+
 // Extdata archive id for a title, including Checkpoint's known exceptions.
 uint32_t extdataIdFor(uint64_t titleId);
 

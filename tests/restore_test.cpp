@@ -42,6 +42,29 @@ TEST_CASE_FIXTURE(Fixture, "existing local folder is never overwritten") {
     CHECK(fs.file("/3ds/Checkpoint/saves/T/V1-2/main") == "save-bytes");
 }
 
+TEST_CASE_FIXTURE(Fixture, "empty folders of the version are created") {
+    const auto files = sampleFiles();
+    auto m = makeManifest(1, files);
+    m.dirs = {{core::Part::Save, "sub/empty"}, {core::Part::Extdata, "user"}, {core::Part::Extdata, "cache"}};
+    MemFiles mem(files);
+    REQUIRE(cs.uploadVersion("T", "V1", m, mem, cancel));
+    REQUIRE(core::restoreVersion(cs, fs, hasher, "T", "V1", cancel));
+    CHECK(fs.dirs.count("/3ds/Checkpoint/saves/T/V1/sub/empty") == 1);
+    CHECK(fs.dirs.count("/3ds/Checkpoint/extdata/T/V1/cache") == 1);
+    CHECK(fs.file("/3ds/Checkpoint/extdata/T/V1/user/data 1.bin") == "ext-bytes");
+}
+
+TEST_CASE_FIXTURE(Fixture, "an unreadable local folder stops the restore before anything is written") {
+    upload("T", "V1", sampleFiles());
+    fs.mkfile("/3ds/Checkpoint/saves/T/V1/main", "mine");
+    fs.unlistable.insert("/3ds/Checkpoint/saves/T");
+    auto r = core::restoreVersion(cs, fs, hasher, "T", "V1", cancel);
+    REQUIRE_FALSE(r);
+    CHECK(r.error().kind == core::ErrorKind::Io);
+    CHECK(fs.file("/3ds/Checkpoint/saves/T/V1/main") == "mine");
+    CHECK_FALSE(fs.exists("/3ds/Checkpoint/extdata/T"));
+}
+
 TEST_CASE_FIXTURE(Fixture, "a name taken only in extdata is also avoided") {
     upload("T", "V1", sampleFiles());
     fs.mkfile("/3ds/Checkpoint/extdata/T/V1/x", "mine");

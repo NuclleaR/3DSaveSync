@@ -23,7 +23,8 @@ public:
 class LocalFs {
 public:
     virtual ~LocalFs() = default;
-    virtual std::vector<std::string> listDirs(const std::string& path) = 0;  // missing → {}
+    // Folder names in path; a missing folder → {}; any other failure → Io error.
+    virtual std::expected<std::vector<std::string>, Error> listDirs(const std::string& path) = 0;
     virtual std::expected<void, Error> makeDirs(const std::string& path) = 0;
     virtual std::expected<std::unique_ptr<LocalWriter>, Error> create(const std::string& path) = 0;
     virtual std::expected<void, Error> removeTree(const std::string& path) = 0;

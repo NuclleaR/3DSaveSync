@@ -4,59 +4,35 @@
 #include <string>
 
 #include "core/settings.hpp"
-#include "core/webdav_client.hpp"
 #include "platform/curl_transport.hpp"
 #include "platform/secure_store.hpp"
+#include "ui/app.hpp"
+#include "ui/delete_screen.hpp"
+#include "ui/menu_screen.hpp"
+#include "ui/restore_screen.hpp"
+#include "ui/settings_screen.hpp"
 #include "ui/setup_screen.hpp"
+#include "ui/sync_screen.hpp"
 #include "ui/ui.hpp"
+
+// Launch: settings (or setup on first launch), then the backup runs at once;
+// the menu leads to Restore, Delete versions, Sync again and Settings.
 
 namespace {
 
-struct Status {
-    std::string text;
-    u32 color;
-    std::string bar;  // right side of the top bar
-    u32 barColor;
-};
-
-// account: the Koofr login in use, or null before there is one.
-void draw(ui::Ui& ui, const Status& status, const core::Settings* account) {
-    ui.beginFrame();
-    ui.topBar(status.bar, status.barColor);
-    ui.text(GFX_TOP, 10.0f, 34.0f, status.text, status.color, 0.5f, ui::kTopWidth - 20.0f);
-    if (account != nullptr) {
-        ui.text(GFX_TOP, 10.0f, 80.0f, "Email", ui::kMuted);
-        ui.text(GFX_TOP, 120.0f, 80.0f, account->user, ui::kText);
-        ui.text(GFX_TOP, 10.0f, 98.0f, "Cloud folder", ui::kMuted);
-        ui.text(GFX_TOP, 120.0f, 98.0f, account->root, ui::kText);
+// Shown when the app cannot start at all; START exits.
+void fatalScreen(ui::Ui& ui, const std::string& text) {
+    while (aptMainLoop()) {
+        hidScanInput();
+        if (hidKeysDown() & KEY_START) {
+            break;
+        }
+        ui.beginFrame();
+        ui.topBar("", ui::kMuted);
+        ui.text(GFX_TOP, 10.0f, 30.0f, text, ui::kError, 0.5f, ui::kTopWidth - 20.0f);
+        ui::footHint(ui, "START — exit");
+        ui.endFrame();
     }
-    const char* hint = "START - exit";
-    ui.text(GFX_BOTTOM, (ui::kBottomWidth - ui.textWidth(hint, 0.45f)) / 2.0f, 210.0f, hint, ui::kMuted, 0.45f);
-    ui.endFrame();
-}
-
-Status checkConnection(const core::Settings& s) {
-    platform::CurlTransport transport(s.user, s.password, nullptr);
-    core::WebDavClient dav(transport, core::kKoofrDavUrl);
-    auto listed = dav.list(s.root);
-    if (listed || listed.error().kind == core::ErrorKind::NotFound) {
-        return {"Connected to Koofr", ui::kOk, "Koofr", ui::kOk};
-    }
-    return {core::describe(listed.error()), ui::kError, "Koofr", ui::kError};
-}
-
-// Settings from the save archive, or from the setup screen on first launch.
-// nullopt with status set: cannot continue; nullopt without: owner exited.
-std::optional<core::Settings> obtainSettings(ui::Ui& ui, std::optional<Status>& status) {
-    auto loaded = platform::loadSettings();
-    if (!loaded) {
-        status = Status{"Could not read the settings: " + loaded.error().detail, ui::kError, "", ui::kMuted};
-        return std::nullopt;
-    }
-    if (*loaded) {
-        return **loaded;
-    }
-    return ui::runSetup(ui);
 }
 
 }  // namespace
@@ -68,30 +44,104 @@ int main() {
         romfsExit();
         return 1;
     }
-
-    std::optional<Status> status;
-    std::optional<core::Settings> settings;
     if (!platform::networkInit()) {
-        status = Status{"Could not start the network service.", ui::kError, "", ui::kMuted};
+        fatalScreen(ui, "Could not start the network service.");
+        romfsExit();
+        return 0;
+    }
+
+    ui::App app(ui);
+    auto loaded = platform::loadSettings();
+    if (!loaded) {
+        fatalScreen(ui, "Could not read the settings: " + loaded.error().detail);
+        platform::networkExit();
+        romfsExit();
+        return 0;
+    }
+    bool run = true;
+    if (*loaded) {
+        app.settings = **loaded;
+    } else if (auto entered = ui::runSetup(ui, platform::loadKept())) {
+        app.settings = *entered;
     } else {
-        settings = obtainSettings(ui, status);
-        if (settings) {
-            draw(ui, {"Connecting to Koofr...", ui::kCurrent, "Koofr", ui::kMuted}, &*settings);
-            status = checkConnection(*settings);
-        }
+        run = false;
     }
 
-    if (status) {
-        const core::Settings* account = settings ? &*settings : nullptr;
-        while (aptMainLoop()) {
-            hidScanInput();
-            if (hidKeysDown() & KEY_START) {
-                break;
+    ui::SyncScreen sync(app);
+    ui::MenuScreen menu(app, sync);
+    ui::RestoreScreen restore(app);
+    ui::DeleteScreen remove(app);
+    ui::SettingsScreen settings(app);
+
+    // Back up on start unless the owner turned it off in Settings.
+    ui::ScreenId screen = app.settings.autoBackup ? ui::ScreenId::Sync : ui::ScreenId::Menu;
+    if (run && screen == ui::ScreenId::Sync) {
+        sync.start();
+    }
+    while (run && aptMainLoop()) {
+        hidScanInput();
+        const u32 down = hidKeysDown();
+        touchPosition touch{};
+        const touchPosition* touched = nullptr;
+        if (down & KEY_TOUCH) {
+            hidTouchRead(&touch);
+            touched = &touch;
+        }
+        if ((down & KEY_START) && screen != ui::ScreenId::Menu) {
+            // START leaves from anywhere; a running job is cancelled first.
+            break;
+        }
+
+        ui::ScreenId next = screen;
+        switch (screen) {
+            case ui::ScreenId::Sync: next = sync.update(down, touched); break;
+            case ui::ScreenId::Menu: next = menu.update(down, touched); break;
+            case ui::ScreenId::Restore: next = restore.update(down, touched); break;
+            case ui::ScreenId::Delete: next = remove.update(down, touched); break;
+            case ui::ScreenId::Settings: next = settings.update(down, touched); break;
+            default: break;
+        }
+
+        if (next != screen) {
+            switch (next) {
+                case ui::ScreenId::Sync: sync.start(); break;
+                case ui::ScreenId::Restore: restore.enter(); break;
+                case ui::ScreenId::Delete: remove.enter(); break;
+                case ui::ScreenId::Settings: settings.enter(); break;
+                case ui::ScreenId::Setup:
+                    // After Sign out: log in again, then continue as on launch.
+                    if (auto entered = ui::runSetup(ui, app.settings)) {
+                        app.settings = *entered;
+                        next = app.settings.autoBackup ? ui::ScreenId::Sync : ui::ScreenId::Menu;
+                        if (next == ui::ScreenId::Sync) {
+                            sync.start();
+                        }
+                    } else {
+                        next = ui::ScreenId::Exit;
+                    }
+                    break;
+                default: break;
             }
-            draw(ui, *status, account);
         }
+        if (next == ui::ScreenId::Exit) {
+            break;
+        }
+        screen = next;
+
+        ui.beginFrame();
+        switch (screen) {
+            case ui::ScreenId::Sync: sync.draw(); break;
+            case ui::ScreenId::Menu: menu.draw(); break;
+            case ui::ScreenId::Restore: restore.draw(); break;
+            case ui::ScreenId::Delete: remove.draw(); break;
+            case ui::ScreenId::Settings: settings.draw(); break;
+            default: break;
+        }
+        ui.endFrame();
     }
 
+    app.cancel.requested = true;
+    app.worker.join();
     platform::networkExit();
     romfsExit();
     return 0;

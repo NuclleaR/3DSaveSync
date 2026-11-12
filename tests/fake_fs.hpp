@@ -15,6 +15,7 @@ class FakeFs : public core::LocalFs {
 public:
     std::map<std::string, std::string> files;
     std::set<std::string> dirs;
+    std::set<std::string> unlistable;  // listDirs fails with Io for these
 
     void mkfile(const std::string& path, const std::string& content) {
         mkdirs(path.substr(0, path.rfind('/')));
@@ -32,7 +33,10 @@ public:
         return it == files.end() ? "<missing>" : it->second;
     }
 
-    std::vector<std::string> listDirs(const std::string& path) override {
+    std::expected<std::vector<std::string>, core::Error> listDirs(const std::string& path) override {
+        if (unlistable.count(path) != 0) {
+            return std::unexpected(core::Error{core::ErrorKind::Io, "cannot list " + path});
+        }
         std::vector<std::string> out;
         const std::string prefix = path + "/";
         for (const auto& d : dirs) {

@@ -25,6 +25,13 @@ TEST_CASE("versionName and uniqueName") {
     CHECK(core::uniqueName("v", {"v", "v-2"}) == "v-3");
 }
 
+TEST_CASE("versionLabel shows the version's date and time") {
+    CHECK(core::versionLabel("20261112-194005") == "2026-11-12 19:40");
+    CHECK(core::versionLabel("20261112-194005-2") == "2026-11-12 19:40 (2)");
+    CHECK(core::versionLabel("my backup") == "my backup");
+    CHECK(core::versionLabel("2026111X-194005") == "2026111X-194005");
+}
+
 TEST_CASE("extdataIdFor") {
     CHECK(core::extdataIdFor(0x0004000000175E00ULL) == 0x1648);
     CHECK(core::extdataIdFor(0x0004000000179800ULL) == 0x1794);

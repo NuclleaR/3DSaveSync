@@ -9,6 +9,7 @@ std::string describe(const Error& e) {
         case ErrorKind::Auth: return "Koofr rejected the login. Check email and app password in Settings.";
         case ErrorKind::Quota: return "Koofr storage is full.";
         case ErrorKind::Cancelled: return "Cancelled.";
+        case ErrorKind::Io: return "Console storage error: " + e.detail;
         default: return "Koofr error: " + e.detail;
     }
 }

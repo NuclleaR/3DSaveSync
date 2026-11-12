@@ -3,10 +3,9 @@
 #include <array>
 #include <string>
 
-#include "core/webdav_client.hpp"
-#include "platform/curl_transport.hpp"
 #include "platform/keyboard.hpp"
 #include "platform/secure_store.hpp"
+#include "ui/app.hpp"
 
 namespace ui {
 
@@ -38,27 +37,16 @@ void draw(Ui& ui, const core::Settings& s, const std::array<Button, kFieldCount>
     for (int i = 0; i < kFieldCount; ++i) {
         ui.button(buttons[i], i == focus);
     }
-    const char* hint = "START - exit";
-    ui.text(GFX_BOTTOM, (kBottomWidth - ui.textWidth(hint, 0.45f)) / 2.0f, 210.0f, hint, kMuted, 0.45f);
+    footHint(ui, "START — exit");
     ui.endFrame();
-}
-
-// Koofr accepts the login if it can list the cloud folder. NotFound is fine:
-// the folder is created by the first backup.
-std::optional<core::Error> tryConnect(const core::Settings& s) {
-    platform::CurlTransport transport(s.user, s.password, nullptr);
-    core::WebDavClient dav(transport, core::kKoofrDavUrl);
-    auto listed = dav.list(s.root);
-    if (listed || listed.error().kind == core::ErrorKind::NotFound) {
-        return std::nullopt;
-    }
-    return listed.error();
 }
 
 }  // namespace
 
-std::optional<core::Settings> runSetup(Ui& ui) {
-    core::Settings s;
+std::optional<core::Settings> runSetup(Ui& ui, core::Settings kept) {
+    core::Settings s = std::move(kept);
+    s.user.clear();
+    s.password.clear();
     const std::array<Button, kFieldCount> buttons{{
         {10.0f, 40.0f, 145.0f, 40.0f, "Email"},
         {165.0f, 40.0f, 145.0f, 40.0f, "App password"},
@@ -106,7 +94,7 @@ std::optional<core::Settings> runSetup(Ui& ui) {
                 status = {"Enter the email and the app password first.", kError};
             } else {
                 draw(ui, s, buttons, focus, {"Connecting to Koofr...", kCurrent});
-                if (auto err = tryConnect(s)) {
+                if (auto err = checkLogin(s, nullptr)) {
                     status = {core::describe(*err), kError};
                 } else if (auto saved = platform::saveSettings(s); !saved) {
                     status = {"Could not save the settings: " + saved.error().detail, kError};

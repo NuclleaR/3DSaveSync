@@ -3,13 +3,12 @@
 namespace core {
 
 std::string serializeSettings(const Settings& s) {
-    return "user=" + s.user + "\npassword=" + s.password + "\nroot=" + s.root + "\n";
+    return "user=" + s.user + "\npassword=" + s.password + "\nroot=" + s.root + "\nautobackup=" +
+           (s.autoBackup ? "1" : "0") + "\n";
 }
 
-std::optional<Settings> parseSettings(std::string_view text) {
-    std::optional<std::string> user;
-    std::optional<std::string> password;
-    std::optional<std::string> root;
+Settings parseKept(std::string_view text) {
+    Settings s;
     while (!text.empty()) {
         const auto nl = text.find('\n');
         const std::string_view line = text.substr(0, nl);
@@ -19,19 +18,26 @@ std::optional<Settings> parseSettings(std::string_view text) {
             continue;
         }
         const std::string_view key = line.substr(0, eq);
-        std::string value(line.substr(eq + 1));
+        const std::string_view value = line.substr(eq + 1);
         if (key == "user") {
-            user = std::move(value);
+            s.user = value;
         } else if (key == "password") {
-            password = std::move(value);
+            s.password = value;
         } else if (key == "root") {
-            root = std::move(value);
+            s.root = normalizeRoot(value);
+        } else if (key == "autobackup") {
+            s.autoBackup = value != "0";
         }
     }
-    if (!user || !password) {
+    return s;
+}
+
+std::optional<Settings> parseSettings(std::string_view text) {
+    Settings s = parseKept(text);
+    if (s.user.empty() || s.password.empty()) {
         return std::nullopt;
     }
-    return Settings{std::move(*user), std::move(*password), root ? normalizeRoot(*root) : std::string(kDefaultRoot)};
+    return s;
 }
 
 std::string normalizeRoot(std::string_view root) {

@@ -34,9 +34,8 @@ std::expected<FS_Archive, core::Error> openOwnSave() {
     return archive;
 }
 
-}  // namespace
-
-std::expected<std::optional<core::Settings>, core::Error> loadSettings() {
+// The settings file's text; nullopt when there is no file (or it cannot be opened).
+std::expected<std::optional<std::string>, core::Error> readText() {
     auto archive = openOwnSave();
     if (!archive) {
         return std::unexpected(archive.error());
@@ -44,7 +43,7 @@ std::expected<std::optional<core::Settings>, core::Error> loadSettings() {
     Handle file = 0;
     if (R_FAILED(FSUSER_OpenFile(&file, *archive, fsMakePath(PATH_ASCII, kSettingsPath), FS_OPEN_READ, 0))) {
         FSUSER_CloseArchive(*archive);
-        return std::optional<core::Settings>{};
+        return std::optional<std::string>{};
     }
     u64 size = 0;
     Result rc = FSFILE_GetSize(file, &size);
@@ -60,15 +59,15 @@ std::expected<std::optional<core::Settings>, core::Error> loadSettings() {
         return std::unexpected(ioError("Reading settings", rc));
     }
     text.resize(got);
-    return core::parseSettings(text);
+    return std::optional<std::string>{std::move(text)};
 }
 
-std::expected<void, core::Error> saveSettings(const core::Settings& s) {
+// Replaces the settings file and commits the save archive.
+std::expected<void, core::Error> writeText(const std::string& text) {
     auto archive = openOwnSave();
     if (!archive) {
         return std::unexpected(archive.error());
     }
-    const std::string text = core::serializeSettings(s);
     Handle file = 0;
     Result rc = FSUSER_OpenFile(&file, *archive, fsMakePath(PATH_ASCII, kSettingsPath), FS_OPEN_WRITE | FS_OPEN_CREATE, 0);
     if (R_FAILED(rc)) {
@@ -92,6 +91,35 @@ std::expected<void, core::Error> saveSettings(const core::Settings& s) {
         return std::unexpected(ioError("Saving settings", rc));
     }
     return {};
+}
+
+}  // namespace
+
+std::expected<std::optional<core::Settings>, core::Error> loadSettings() {
+    auto text = readText();
+    if (!text) {
+        return std::unexpected(text.error());
+    }
+    if (!*text) {
+        return std::optional<core::Settings>{};
+    }
+    return core::parseSettings(**text);
+}
+
+std::expected<void, core::Error> saveSettings(const core::Settings& s) {
+    return writeText(core::serializeSettings(s));
+}
+
+core::Settings loadKept() {
+    auto text = readText();
+    return text && *text ? core::parseKept(**text) : core::Settings{};
+}
+
+std::expected<void, core::Error> clearLogin(const core::Settings& s) {
+    core::Settings kept = s;
+    kept.user.clear();
+    kept.password.clear();
+    return writeText(core::serializeSettings(kept));
 }
 
 }  // namespace platform

@@ -26,6 +26,30 @@ std::vector<FileEntry> sorted(std::vector<FileEntry> files) {
     return files;
 }
 
+auto dirKey(const DirEntry& d) {
+    return std::tie(d.part, d.path);
+}
+
+std::vector<DirEntry> sortedDirs(std::vector<DirEntry> dirs) {
+    std::sort(dirs.begin(), dirs.end(), [](const DirEntry& a, const DirEntry& b) { return dirKey(a) < dirKey(b); });
+    return dirs;
+}
+
+std::optional<DirEntry> parseDirLine(std::string_view line) {
+    const auto tab = line.find('\t');
+    if (tab == std::string_view::npos || tab + 1 >= line.size()) {
+        return std::nullopt;
+    }
+    const std::string_view kind = line.substr(0, tab);
+    if (kind == "savedir") {
+        return DirEntry{Part::Save, std::string(line.substr(tab + 1))};
+    }
+    if (kind == "extdatadir") {
+        return DirEntry{Part::Extdata, std::string(line.substr(tab + 1))};
+    }
+    return std::nullopt;
+}
+
 bool isLowerHex(std::string_view s) {
     return std::all_of(s.begin(), s.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
 }
@@ -91,6 +115,12 @@ std::string serializeManifest(const Manifest& m) {
         out += f.path;
         out += '\n';
     }
+    for (const DirEntry& d : sortedDirs(m.dirs)) {
+        out += d.part == Part::Save ? "savedir" : "extdatadir";
+        out += '\t';
+        out += d.path;
+        out += '\n';
+    }
     return out;
 }
 
@@ -110,6 +140,12 @@ std::optional<Manifest> parseManifest(std::string_view text) {
             if (!line.starts_with(kTitlePrefix) || !parseNumber(line.substr(kTitlePrefix.size()), 16, m.titleId)) {
                 return std::nullopt;
             }
+        } else if (line.starts_with("savedir\t") || line.starts_with("extdatadir\t")) {
+            auto dir = parseDirLine(line);
+            if (!dir) {
+                return std::nullopt;
+            }
+            m.dirs.push_back(std::move(*dir));
         } else if (!line.empty()) {
             auto entry = parseFileLine(line);
             if (!entry) {
@@ -125,13 +161,17 @@ std::optional<Manifest> parseManifest(std::string_view text) {
 }
 
 bool sameContent(const Manifest& a, const Manifest& b) {
-    if (a.files.size() != b.files.size()) {
+    if (a.files.size() != b.files.size() || a.dirs.size() != b.dirs.size()) {
         return false;
     }
     const auto sa = sorted(a.files);
     const auto sb = sorted(b.files);
+    const auto da = sortedDirs(a.dirs);
+    const auto db = sortedDirs(b.dirs);
     return std::equal(sa.begin(), sa.end(), sb.begin(),
-                      [](const FileEntry& x, const FileEntry& y) { return sortKey(x) == sortKey(y); });
+                      [](const FileEntry& x, const FileEntry& y) { return sortKey(x) == sortKey(y); }) &&
+           std::equal(da.begin(), da.end(), db.begin(),
+                      [](const DirEntry& x, const DirEntry& y) { return dirKey(x) == dirKey(y); });
 }
 
 bool hasPart(const Manifest& m, Part p) {
