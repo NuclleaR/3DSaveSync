@@ -80,6 +80,7 @@ These would make the app a failure even if everything else works:
 | Build system | Make (devkitPro's application template plus a `cia` target) |
 | PC unit tests | doctest (single header, vendored) for the hardware-free code in `source/core/` |
 | Version control | git, commits only on the owner's go-ahead, no AI attribution; remote `git@github.com:NuclleaR/3DSaveSync.git` |
+| Releases | GitHub Actions (`.github/workflows/release.yml`): pushing a tag `v*` runs the PC tests and, only if they pass, builds the CIA and publishes it as a GitHub release named after the tag. makerom and bannertool are built from source at the versions used locally. Install by QR code in FBI (Remote Install → Scan QR Code): each release carries a QR code of its own CIA link, and the README shows a permanent one for the latest release (owner, 2026-11-12) |
 | License | GPLv3 (owner, 2026-11-12), so code and tables adapted from Checkpoint (GPLv3 or later) can be used. Files adapted from Checkpoint keep its copyright notice and Additional Terms 7.b/7.c and are marked as modified. "Or later" matches Checkpoint (designer's call). |
 
 ## Constraints found during research (2026-11-12)
@@ -89,7 +90,9 @@ These would make the app a failure even if everything else works:
   with plain AES128-SHA256.
 - **The console's built-in SSL service tops out at TLS 1.1** (3dbrew, and Pretendo forum reports that
   the 3DS cannot reach TLS-1.2-only servers). Therefore `httpc`/`sslc` cannot be used; all network
-  traffic goes through libcurl + mbedTLS.
+  traffic goes through libcurl + mbedTLS. The one use of `sslc` left is as a random-number source:
+  devkitPro's mbedTLS port gets its entropy from `sslcGenerateRandomData` and does not start the
+  service itself, so the app calls `sslcInit` before any TLS connection.
 - **Koofr's WebDAV accepts only an app password.** The account password that works in the browser
   gets HTTP 401 on WebDAV.
 - **Koofr's WebDAV answers as the upload protocol needs** (probe run 2026-11-12,
@@ -114,9 +117,15 @@ These would make the app a failure even if everything else works:
   revoked without changing the main password).
 - On first launch (no stored credentials) the app shows a setup screen: email and app password are
   entered with the system software keyboard, the connection is tested, and on success they are saved.
+  The test lists the cloud folder; "not found" counts as success, because the first backup creates
+  the folder. On failure the screen shows the error text and stays open. START exits the app.
 - Storage: the app's own save-data archive. As an installed CIA the app has its own title ID; save
   data of SD-installed titles is stored under `Nintendo 3DS/` encrypted by the console with a
-  console-unique key, so the SD card alone does not reveal it.
+  console-unique key, so the SD card alone does not reveal it. The settings are one text file,
+  `/settings.txt` (`user=`, `password=`, `root=` lines), committed with
+  `ARCHIVE_ACTION_COMMIT_SAVE_DATA`. A fresh install has no archive yet; the app formats it on first
+  use. When the file is missing or cannot be opened, the app treats it as a first launch and shows
+  setup.
 - Settings screen: change credentials, change the cloud root folder.
 
 ### Backup (runs automatically on launch)
@@ -226,6 +235,12 @@ changing what is already stored in the cloud.
 Approved mockup: `docs/superpowers/mockups-2026-11-12-screens.html` (open it in a browser). Top screen 400×240,
 bottom touch screen 320×240. UI text is in English. Touch and the D-pad/A/B both work.
 
+The mockup has no setup screen. Its layout uses the mockup's colors and buttons: the top screen
+shows "Koofr login", the email, whether the app password is set (never the password itself), the
+cloud folder, the status or error text, and a hint that WebDAV needs a Koofr app password. The
+bottom screen has the buttons "Email", "App password" and "Connect" (primary). The D-pad moves the
+selection and A presses the selected button.
+
 ## The designer's calls (not discussed with the owner)
 
 - Restoring a version downloads both its save data and its extdata into Checkpoint's folders.
@@ -255,4 +270,6 @@ bottom touch screen 320×240. UI text is in English. Touch and the D-pad/A/B bot
 
 ## Left to the builder
 
-- Network timeouts and retries.
+- Network timeouts and retries. Until the sync screen with its Cancel button exists (plan Task 13),
+  the app uses curl's defaults: 300 s to connect, no limit on a running transfer. While a request
+  runs the screen does not update and HOME does not respond.

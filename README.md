@@ -14,7 +14,7 @@ for task-by-task progress, commits and every deviation from the plan.
 |---|---|
 | Core logic (Checkpoint naming, manifests, WebDAV client, cloud layout, upload protocol, cleanup, backup runner, restore) | done, unit-tested on the PC |
 | CIA build, app skeleton | done; runs in the Azahar emulator |
-| Koofr login, HTTPS (curl + mbedTLS), first-launch setup | in progress |
+| Koofr login, HTTPS (curl + mbedTLS), first-launch setup | built; waiting for the check on the console |
 | Reading installed games, sync / restore / delete / settings screens | not started |
 
 ## How it works
@@ -76,7 +76,8 @@ Koofr answers HTTP 401.
    sudo pacman -S 3ds-dev 3ds-curl 3ds-mbedtls 3ds-tinyxml2
    ```
 2. CIA tools from the AUR: `projectctr-makerom` (or `projectctr-makerom-bin`) and `bannertool-git`.
-3. For the PC unit tests: `gcc`, `make`, `tinyxml2`.
+3. For the PC unit tests: `gcc`, `make`, `tinyxml2`, `curl` (already installed on Arch; the tests
+   use its headers and library).
 
 ## Build
 
@@ -95,14 +96,43 @@ set in the environment.
 make -C tests
 ```
 
-Builds `source/core/` with the host compiler and runs the doctest suite. The core code has no
-libctru dependency; the console-specific parts are behind small interfaces and are checked on the
-console.
+Builds `source/core/` and `source/platform/curl_error.cpp` with the host compiler and runs the
+doctest suite. The core code has no libctru dependency; the console-specific parts are behind small
+interfaces and are checked on the console.
+
+## Releases
+
+Push a tag that starts with `v`:
+
+```
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+GitHub Actions (`.github/workflows/release.yml`) then:
+
+1. runs the PC tests in an `archlinux` container;
+2. builds the CIA in the `devkitpro/devkitarm:20260610` container, with makerom `v0.19.0` and
+   bannertool (commit `51dac92`) built from source by `tools/build-cia-tools.sh` and cached;
+3. publishes a GitHub release named after the tag, with `3DSaveSync.cia` and `3DSaveSync-qr.png`
+   (a QR code of that version's CIA link) attached; the notes show the QR code, the direct link and
+   the commits since the previous release.
+
+If the tests fail, nothing is published. Pushes without a tag do not run the workflow.
 
 ## Install and run
 
-- **Console:** copy `3DSaveSync.cia` to the SD card (or serve it over the network) and install it
-  with FBI. The app appears on the HOME Menu.
+- **Console, over the internet:** in FBI choose Remote Install → Scan QR Code and scan this code. It
+  always points to the CIA of the latest release
+  (`https://github.com/NuclleaR/3DSaveSync/releases/latest/download/3DSaveSync.cia`). Each release's
+  notes also carry a QR code for that exact version.
+
+  <img src="docs/fbi-install-qr.svg" alt="QR code for FBI: latest 3DSaveSync.cia" width="200">
+
+- **Console, from the SD card:** take `3DSaveSync.cia` from a GitHub release (or build it), copy it
+  to the SD card (or serve it over the network) and install it with FBI. The app appears on the HOME Menu. On first launch it asks for the Koofr email and app
+  password (system keyboard), tests the login, and stores them in its own save data.
+- The console's date and time must be right: the Koofr certificate check fails otherwise.
 - **Emulator, for quick UI checks:** in [Azahar](https://github.com/azahar-emu/azahar), `File →
   Install CIA…`. The emulator cannot stand in for the console: it does not see the console's games
   and does not reproduce Luma or the CIA's access permissions.
@@ -122,16 +152,25 @@ file that is deleted on exit. Run it in your own terminal so the password is nev
 ## Project layout
 
 ```
-source/main.cpp        app entry (citro2d)
+source/main.cpp        app entry: settings or setup, then the Koofr connection check
 source/core/           hardware-free logic, unit-tested on the PC
-source/platform/       3DS implementations of the core interfaces (curl, FS, AM, SD) — in progress
-source/ui/             citro2d screens — in progress
-tests/                 doctest suite, fakes and fixtures for source/core
+source/platform/       3DS implementations: curl transport, settings store, keyboard
+                       (games and SD card access still to come)
+source/ui/             citro2d drawing helpers and the setup screen (other screens to come)
+tests/                 doctest suite, fakes and fixtures
 tools/koofr-probe.sh   Koofr WebDAV probe
+tools/build-cia-tools.sh  builds makerom and bannertool from source (used by CI)
+.github/workflows/     release workflow
 resources/             RSF, icon, banner, banner sound (placeholders)
-romfs/                 files bundled into the app (CA certificates will go here)
+romfs/cacert.pem       Mozilla CA bundle from curl.se, used to verify Koofr's certificate
 docs/superpowers/      design, implementation plan, screen mockups
+docs/fbi-install-qr.svg  QR code of the latest release's CIA link
+                       (qrencode -t SVG -m 2 -o docs/fbi-install-qr.svg <link>)
 ```
+
+To refresh the CA bundle, download `https://curl.se/ca/cacert.pem` into `romfs/`, compare its
+SHA-256 with `https://curl.se/ca/cacert.pem.sha256`, and rebuild. The bundled copy is dated
+2026-11-05.
 
 ## License
 
