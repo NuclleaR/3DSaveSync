@@ -1,7 +1,7 @@
 #include "core/cloud_store.hpp"
 
 #include <algorithm>
-#include <memory>
+#include <cstdint>
 #include <set>
 
 namespace core {
@@ -16,12 +16,12 @@ std::string parentOf(const std::string& path) {
 }
 
 BodySource textSource(std::string text) {
-    auto bytes = std::make_shared<std::string>(std::move(text));
-    auto offset = std::make_shared<size_t>(0);
-    return BodySource{bytes->size(), [bytes, offset](char* buf, size_t cap) -> std::expected<size_t, Error> {
-                          const size_t n = std::min(cap, bytes->size() - *offset);
-                          std::copy_n(bytes->data() + *offset, n, buf);
-                          *offset += n;
+    const uint64_t size = text.size();
+    return BodySource{size, [bytes = std::move(text), offset = size_t{0}](char* buf, size_t cap) mutable
+                                -> std::expected<size_t, Error> {
+                          const size_t n = std::min(cap, bytes.size() - offset);
+                          std::copy_n(bytes.data() + offset, n, buf);
+                          offset += n;
                           return n;
                       }};
 }
