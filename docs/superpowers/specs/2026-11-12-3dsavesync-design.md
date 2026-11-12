@@ -287,7 +287,9 @@ How the other screens work, beyond the mockup:
   The RSF filesystem access list follows Checkpoint's, which opens other titles' archives. The RSF
   also maps VRAM read-only (`1f000000-1f5fffff:r`): libctru reads the screens from VRAM when it
   starts a library applet such as the software keyboard.
-  Placeholder icon and banner until the owner provides art.
+  Icon and HOME Menu banner (owner, 2026-11-12): a white cloud with an upload arrow on a blue
+  gradient; the banner adds "3DSaveSync" and "Save backups in Koofr" on a dark background. Both are
+  drawn by `tools/make-art.sh`. The banner sound is still one second of silence.
 - Error texts shown on the console:
   - No network: "No connection to Koofr. Check Wi-Fi."
   - TLS failure: "Secure connection failed. Check the console's date and time."

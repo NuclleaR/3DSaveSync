@@ -162,8 +162,9 @@ source/ui/             citro2d screens (setup, sync, menu, restore, delete, sett
 tests/                 doctest suite, fakes and fixtures
 tools/koofr-probe.sh   Koofr WebDAV probe
 tools/build-cia-tools.sh  builds makerom and bannertool from source (used by CI)
+tools/make-art.sh      draws resources/icon.png and resources/banner.png (ImageMagick)
 .github/workflows/     release workflow
-resources/             RSF, icon, banner, banner sound (placeholders)
+resources/             RSF, icon and banner (drawn by tools/make-art.sh), banner sound (silence)
 romfs/cacert.pem       Mozilla CA bundle from curl.se, used to verify Koofr's certificate
 docs/superpowers/      design, implementation plan, screen mockups
 docs/fbi-install-qr.svg  QR code of the latest release's CIA link
